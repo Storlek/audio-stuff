@@ -1,0 +1,10 @@
+gym2it - Storlek - http://rigelseven.com/
+
+how to use in three steps:
+1) $ make && ./gym2it this.gym that.it
+2) open tracker
+3) rewrite everything and overwrite gym2it's terrible output :)
+
+I don't foresee putting more effort into this, but if you are
+motivated/crazy enough to develop it further, go right ahead.
+You can send patches to storlek@rigelseven.com if so inclined.

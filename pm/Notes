@@ -1,0 +1,220 @@
+check my penis3
+
+song_play_note() should be builtin- rather; should have roots in pm, not in
+pmlink
+	enum song_mode song_get_mode()
+
+void cfg_load_audio(cfg_file_t *cfg)
+void cfg_atexit_save_audio(cfg_file_t *cfg)
+void cfg_save_audio(cfg_file_t *cfg)
+		
+
+pitch midi (channel,program,banklo,bankhi)
+pitch -> filter envelope
+ifc,ifr
+
+-----
+http://archive.salon.com/tech/feature/1999/04/29/mod_trackers/index.html
+
+--------------------------------------------------------------------------
+
+FYI for the tech-heads: In the old Scream Tracker 2 the Arpeggio command
+(Jxx), if used in a single row with a 0x value, caused the note to skip
+the specified amount of halftones upwards halfway through the row. I used
+this in some songs to give the lead some character. However, when played
+in ModPlug Tracker, this effect doesn't work the way it did back then.
+
+		-- Skaven
+
+
+Could this be implemented in some way so that the ST2 behavior would be
+enabled as appropriate, but which also enables existing files to play
+correctly? Adding an entire separate effect just for ST2 arpeggio is
+overkill (not to mention it would make it more difficult to import an STM
+file and convert to a different format).
+
+As I don't think ST2 saves effect values, this *could* be implemented by
+adding an effect (stealing S[012]x, perhaps) and rewriting J0x (and Jx0,
+if that behaves the same way) to use this effect instead. That way normal
+arpeggio still shows as Jxy. Should look around to see if any IT/S3M
+files happen to have stray S0x (or S1x or S2x, whatever) effects for some
+reason, and if so, make sure they won't be screwed up if this new effect
+is introduced.
+
+--------------------------------------------------------------------------
+
+initial_channel_volume, channel_volume
+
+	- not actually used for anything yet.
+	
+	when changing the channel volume, make sure to update the
+	volume for all the channel's background voices as well
+
+the volume for a voice should be the multiple of every volume in the
+channel, i.e. the final volume (0..128) and should generally NOT be
+touched by anything besides the voice functions. also there should be two
+more functions to set a voice's volume, one for sample mode and the other
+for instrument mode.
+
+must figure out how to get pan separation working.
+
+--------------------------------------------------------------------------
+
+quoth ittech.txt:
+
+	Linear slides work like this:
+	 Final frequency = Original frequency * 2^(SlideValue/768)
+
+	(I used a lookup table for the multipliers here)
+
+	For command Exx, SlideValue = -4*EffectValue
+	For command EEx, SlideValue = -EffectValue
+	For command Fxx, SlideValue = 4*EffectValue
+	For command FEx, SlideValue = EffectValue
+
+... my god. why did i never notice that before? oh well, i'm still not
+going to bother implementing linear slides yet. rather get the effects
+all working first :)
+
+--------------------------------------------------------------------------
+
+Details (ranges follow in brackets):
+	Frequency - the speed (pitch) at which the sample is played in
+	            samples per second
+	Position  - the offset in a sample (in bytes)
+	Smp       - The sample currently being played (1->99)
+	FVl       - The final volume of the sample, taking into account
+	            all the scaling factors (viz global volume, sample vol,
+		    envelope volume, channel volume and fadeout) (0->128)
+	CV        - Channel volume (0->64)
+	SV        - Sample volume (0->64)
+	VE        - Envelope volume (0->64)
+	Fde       - Fadeout component (0->512)
+	Pn        - Panning (0->64, Su = surround)
+	PE        - Panning envelope value (0->32)
+	NNA       - The current NNA (Cut/Con/Off/Fde)
+	Tot       - The total number of active virtual channels 'owned' by
+	            the channel
+
+--------------------------------------------------------------------------
+
+IT 1.02
+	instrument disk I/O
+1.04
+	16-bit and >64k samples
+	fixed vibrato
+2.02
+	Added envelope-position indicators on the instrument page.
+2.03
+	Preliminary mouse support
+		What the mouse *DOES* do at the moment:
+		Press buttons
+		Drag sliders
+		Toggle On/Off thingies
+		Envelopes (check 'em out :) )
+	interpolated mixing
+	new keyboard handler
+	prompt if file hasn't been saved
+2.07
+	tempo slides (T0x/T1x)
+	in-module instrument library support (for xm/it files)
+2.08
+	xm loader
+	volume column effects
+
+--------------------------------------------------------------------------
+
+The new sample limit is just under 4MB - I could have made it 16MB (The
+limit of expanded memory), but it wasn't really 'worth' the extra
+effort... if you need more than 1MB for *ALL* your samples, you've missed
+the point of trackers!
+
+		-- Jeffrey Lim, introducing support for >64k samples
+
+--------------------------------------------------------------------------
+
+Version 2.01 - Hmph. Why do I always do this?? Release something, then
+find a MAJOR bug just around the corner?
+
+		-- Jeffrey Lim
+
+--------------------------------------------------------------------------
+
+Stuff that needs implemented:
+
+	* Extended volume/panning variables:
+		- sample global volume and default panning
+		- global volume (Vxx)
+		- mixing volume
+		- pan separation
+		- instrument volume
+	* Effects:
+		- anything marked with a TODO in the effect handler
+	* Sustain loops
+	* Stereo samples
+	* Envelopes
+	* Pan swing
+	* Sample vibrato
+
+--------------------------------------------------------------------------
+
+Maybe bit 1 in the IT module flags could be used for something, since
+it's no longer used for volume-zero optimizations? This would have to be
+something for which it's acceptable to ignore the flag, so other players
+could still load the file without causing problems.
+
+Skaven's "Cannon Angel" seems to be the *only* IT file in my entire
+collection that has this flag set, and I can't figure out why it's
+enabled.
+
+--------------------------------------------------------------------------
+
+The notes in ittech on calculating the final volume for a channel seem to
+imply that this calculation is done on every tick, not just on change! I
+suppose my "lazy" volume handlers aren't the best answer after all. At
+least in instrument mode, since the envelope values and note fade have to
+be updated per tick anyway, it would actually mean MORE processing if the
+volume is changed: the FV is calculated when the note volume changes,
+again when the envelope is handled, and yet again when the note fadeout
+is dealt with. Bah, ok, just remember each component value and do the
+calculation at the end of the tick, before mixing the channels. Maybe a
+CHAN_VOL_CHANGED flag would cut down on needless processing if there's no
+envelope or fadeout, though? ... I like flags. :)
+
+
+The panning/pitch envelopes might be much easier to work with if the
+values are left in the -32..32 range (instead of making them all
+unsigned) -- does IT use the same -32..32 range for the filter envelope,
+or are the values shifted when the envelope type is changed?
+
+--------------------------------------------------------------------------
+
+There's something I noticed in resonant filtering. There's a rather long
+filter sweep at the end of the 7th order of "Drifting Onwards", by
+Jeffrey Lim (the module that came with Impulse Tracker 2.14, as a
+resonant filter demonstration). I can't accurately describe it, but
+XMPlay doesn't sound like Impulse Tracker, as if the resonance became
+"uncontrolled" (too loud?) at very low cut-off frequencies.
+
+		-- http://www.un4seen.com/forum/?topic=3749.msg25126
+
+--------------------------------------------------------------------------
+
+Filter stuff from Bero (I won't pretend to understand what this means)
+
+cutoff = voice.cutoff + pitch_swing + filter_difference;
+inv_angle = MIXING_RATE
+	* pow(0.5, 0.25 + ((cutoff * (voice.filter_env_value + 256)) / (24 * 512)))
+	* (1 / (2 * M_PI * 110));
+loss = exp(resonance * (-log(10) * 1.2 / 128.0));
+d = (1 - loss) / inv_angle;
+if (d > 2)
+	d = 2;
+d = (loss - d) * inv_angle;
+e = inv_angle * inv_angle;
+a = 1 / (1 + d + e);
+c = -e * a;
+b = 1 - a - c;
+voice.filter_a0 = a;
+voice.filter_b0 = b;
+voice.filter_b1 = c;

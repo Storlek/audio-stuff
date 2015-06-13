@@ -1,0 +1,37 @@
+This is getting more complete all the time...
+
+        - mrsb
+
+---
+
+This is the (currently not nearly complete) player for Schism Tracker. I
+have tried to replicate the internal processing as much as possible,
+right down to following the precise flowchart of the mixing as outlined
+in ITTECH.TXT. Numeric ranges are kept the same whenever possible, and
+the behavior of effects is kept as close as possible to IT. I have tried
+very hard to stay away from adding ugly hacks to get something to behave
+the same way, preferring instead to rewrite entire sections of code so
+that the intended behavior is achieved.
+
+To make one point clear: I am MUCH more concerned with getting everything
+to play correctly (defined by Impulse Tracker, including bugs and weird
+behavior) and speed of the player than sound quality. Once the player is
+fully functional and it can correctly interpret even the most twisted IT
+(or S3M, XM, etc.) file, then and only then will I shift my interest to
+adding vanity features like spline interpolation and volume ramping.
+
+I have used slightly different naming conventions here than in Schism
+Tracker. This is because this code was actually outlined on paper with a
+planned structure before I started writing it. Consider this code as an
+example of what the tracker code might have looked like if I had designed
+it properly before I started writing. (or, at the very least, had any
+idea *what* I was writing... :)
+
+Oh, one last thing: "pm" doesn't mean anything. It isn't a clever
+reversal of "mp" for Modplug, nor is it a secret reference to Purple
+Motion, and it's certainly not an abbreviation for "play module" or
+anything of the sort.
+
+Happy hacking! Or not.
+
+/ Storlek

@@ -1,0 +1,95 @@
+registers:
+
+        r0
+        r1
+        r2
+        tl
+        fc
+        cn
+        sp
+        ip
+
+        inc
+        pos
+        vol
+        wave
+        freq
+
+
+opcodes: (sorted by data type)
+        nop
+        tick
+        halt
+        sdump                   debugging only, not really a part of the instruction set
+        ret
+
+        tick imm8
+        jmp imm8                short jumps are relative to $
+        jz imm8
+        jnz imm8
+        call imm8
+
+        jmp imm32               long jumps are absolute (but see below)0
+        jz imm32
+        jnz imm32
+        call imm32
+
+        push reg                (can't push/pop with channel regs!)
+        pop reg
+
+        mov reg, imm8
+        add reg, imm8           NOTE: two opcodes exist
+        sub reg, imm8           NOTE: two opcodes exist
+        and reg, imm8
+        xor reg, imm8
+        or reg, imm8
+        mul reg, imm8
+        shl reg, imm8
+        shr reg, imm8
+
+        mov reg, imm32
+        add reg, imm32
+        sub reg, imm32
+        and reg, imm32
+        xor reg, imm32
+        or reg, imm32
+        mul reg, imm32
+        shl reg, imm32
+        shr reg, imm32
+
+        and reg, reg
+        xor reg, reg
+        or reg, reg
+        add reg, reg
+        sub reg, reg
+        mul reg, reg
+        shl reg, reg
+        shr reg, reg
+        mov reg, reg
+
+        lda reg, reg            memory dereference
+
+
+
+XXX thinking of it, it'd make sense to only allow 32-bit call and unconditional jmp,
+and also make those values relative to $
+additionally it'd be nice to have jmp with a register value.
+(but those will come later)
+
+need meta-instructions for db, dd, and org, maybe also resb
+also a label mechanism of some sort
+
+floating point constants should be converted to 32-bit fixed point
+
+
+
+not yet implemented:
+        swap
+        dup
+        rot
+        drop
+        nip
+        tuck
+        over
+        swap2
+lol, forth.

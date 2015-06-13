@@ -1,0 +1,20 @@
+[29 December 2009]
+
+Well, this code appears to kinda-sorta work, but big samples fail since I
+haven't quite nailed how to handle more than one data block. Not that it's
+at all easy to test, considering that the algorithm I'm using is laughably
+inefficient (on the order of taking a couple seconds per sample).
+
+In addition, compression is not quite optimal yet, though very simple cases
+all seem to be handled accurately. BUT! it functions at least for small data,
+so that's a step farther than anyone else has gotten, so I'm satisfied.
+
+I don't intend to pursue this further, inasmuch as it was kind of fun to do,
+since it is not very useful. There's really no justification for such an
+algorithm -- zlib and bzip2 both tend to produce better results (see itz.py),
+and they're certainly more widely available. Tests with a few randomly chosen
+samples shows that bzip2 compression of delta-encoded sample data gives very
+good results in general.
+
+
+/ Storlek

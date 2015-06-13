@@ -1,0 +1,8 @@
+usage: genrip *.vgm
+
+This strips through each .vgm file given, finds and extracts sample data,
+and dumps out a corresponding .it file for use as a sample library.
+
+It's "close" -- perhaps even mildly useful -- but it's still a total hack.
+Just opening the file in a sample editor and slicing it into pieces might
+produce better results.

@@ -1,0 +1,227 @@
+#!/usr/bin/python2
+
+# copyright (c) 2010 Storlek - http://rigelseven.com/
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
+# Python 2.6<=v<3 is needed. This uses a lot of nonsense that 3.x doesn't
+# like, but also has enumerate(x, n) which 2.5 doesn't have. Retrospectively,
+# it'd probably have been easier to write this with Python 3's bytes() type
+# and BytesIO, but this is just a hackish prototype anyway.
+
+import re, sys, struct
+from collections import namedtuple
+from StringIO import StringIO
+
+tokenizer = re.compile(r"""
+        (?P<string>     " (?: [^\\"] | \\. )* "                 ) |
+        (?P<floating>   [0-9]+\.[0-9]*                          ) |
+        (?P<number>     0[Xx][0-9A-Fa-f]+ [Ll]? | [0-9]+ [Ll]?  ) |
+        (?P<comment>    ; .*? (?= \n | $ )                      ) |
+        (?P<ident>      [A-Za-z_] [A-Za-z0-9_]*                 ) |
+        (?P<whitespace> [, \t\n]+                               ) |
+        (?P<label>      :                                       ) |
+        (?P<invalid>    .                                       )
+""", re.VERBOSE | re.MULTILINE)
+
+Token = namedtuple('Token', 'type value')
+
+def error(s):
+        print(s)
+        sys.exit(1)
+
+def lex(fp):
+        for lnum, line in enumerate(fp,  1):
+                tokens = []
+                for m in tokenizer.finditer(line):
+                        t, v = [(t, v) for t, v in m.groupdict().items() if v is not None][0]
+                        if t == 'invalid':
+                                error("%d: invalid data" % lnum)
+                        elif t not in ('whitespace', 'comment'):
+                                tokens.append(Token(t, v))
+                if tokens:
+                        yield lnum, tokens
+
+# -------------------------------------------------------------------------------------------------------------
+
+# 'd' is an array of 4 bytes
+# 'b' is a single byte
+# 'r' is a register number (with the extended-value bit set for channel regs)
+
+def assert_base_reg(r):
+        if r > 7:
+                raise ValueError("channel registers unsupported for opcode")
+        return r
+
+
+opcodes = dict(
+        addRB = lambda r, b: [0x80 | r, b], # or [0xf0, 0x30 | r, b]
+        addRD = lambda r, *d: [0xf1, 0x30 | r] + list(d),
+        addRR = lambda rd, rs: [0xd3, rd | (rs << 4)],
+        andRB = lambda r, b: [0xf0, 0x00 | r, b],
+        andRD = lambda r, b: [0xf1, 0x00 | r] + list(d),
+        andRR = lambda rd, rs: [0xd0, rd | (rs << 4)],
+        callB = lambda b: [0xe6, b],
+        callD = lambda *d: [0xe7] + list(d),
+        cmpRB = lambda r, b: [0xf0, 0x80 | r, b],
+        cmpRD = lambda r, *d: [0xf1, 0x80 | r] + list(d),
+        cmpRR = lambda rd, rs: [0xd8, rd | (rs << 4)],
+        divRB = lambda r, b: [0xf0, 0x90 | r, b],
+        divRD = lambda r, *d: [0xf1, 0x90 | r] + list(d),
+        divRR = lambda rd, rs: [0xd9, rd | (rs << 4)],
+        drop = lambda: [0x0b],
+        dup = lambda: [0x09],
+        getcR = lambda r: [0x60 | assert_base_reg(r)],
+        halt = lambda: [0x04],
+        jgB = lambda b: [0xeb, b],
+        jgD = lambda *d: [0xec] + list(d),
+        jlB = lambda b: [0xe9, b],
+        jlD = lambda *d: [0xea] + list(d),
+        jmpB = lambda b: [0xe0, b],
+        jmpD = lambda *d: [0xe1] + list(d),
+        jnzB = lambda b: [0xe4, b],
+        jnzD = lambda *d: [0xe5] + list(d),
+        jzB = lambda b: [0xe2, b],
+        jzD = lambda *d: [0xe3] + list(d),
+        ldaRR = lambda rd, rs: [0xdd, rd | (rs << 4)],
+        movRB = lambda r, b: [0x10 | r, b],
+        movRD = lambda r, *d: [0x20 | r] + list(d),
+        movRR = lambda rd, rs: [0xdc, rd | (rs << 4)],
+        mulRB = lambda r, b: [0xf0, 0x50 | r, b],
+        mulRD = lambda r, *d: [0xf1, 0x50 | r] + list(d),
+        mulRR = lambda rd, rs: [0xd5, rd | (rs << 4)],
+        nip = lambda: [0x0c],
+        nop = lambda: [0x00],
+        orRB = lambda r, b: [0xf0, 0x20 | r, b],
+        orRD = lambda r, *d: [0xf1, 0x20 | r] + list(d),
+        orRR = lambda rd, rs: [0xd2, rd | (rs << 4)],
+        over = lambda: [0x0e],
+        popR = lambda r: [0x40 | assert_base_reg(r)],
+        pushR = lambda r: [0x48 | assert_base_reg(r)],
+        putcR = lambda r: [0x68 | assert_base_reg(r)],
+        ret = lambda: [0xe8],
+        rot = lambda: [0x0a],
+        shlRB = lambda r, b: [0xf0, 0x60 | r, b],
+        shlRD = lambda r, *d: [0xf1, 0x60 | r] + list(d),
+        shlRR = lambda rd, rs: [0xd6, rd | (rs << 4)],
+        shrRB = lambda r, b: [0xf0, 0x70 | r, b],
+        shrRD = lambda r, *d: [0xf1, 0x70 | r] + list(d),
+        shrRR = lambda rd, rs: [0xd7, rd | (rs << 4)],
+        subRB = lambda r, b: [0x90 | r, b], # or [0xf0, 0x40 | r, b]
+        subRD = lambda r, *d: [0xf1, 0x40 | r] + list(d),
+        subRR = lambda rd, rs: [0xd4, rd | (rs << 4)],
+        swap = lambda: [0x08],
+        swap2 = lambda: [0x0f],
+        tick = lambda: [0x01],
+        tickB = lambda b: [0x02, b],
+        tuck = lambda: [0x0d],
+        xorRB = lambda r, b: [0xf0, 0x10 | r, b],
+        xorRD = lambda r, *d: [0xf1, 0x10 | r] + list(d),
+        xorRR = lambda rd, rs: [0xd1, rd | (rs << 4)],
+)
+
+# special meta-opcode
+opcodes['db'] = lambda *d: d
+
+# -------------------------------------------------------------------------------------------------------------
+
+FRACBITS = 11 # keep in sync with soda.c
+
+app = StringIO()
+
+labels = {}
+
+regs = {
+        'r0': 0, 'r1': 1, 'r2': 2, 'tl': 3, 'fc': 4, 'cn': 5, 'sp': 6, 'ip': 7,
+        'pos': 9, 'vol': 10, 'wave': 11, 'freq': 12,
+}
+
+def to_bytes(lnum, arg):
+        if arg.type == 'string':
+                # eval is bad, yes I know
+                return 'A', list(map(ord, eval(arg.value)))
+        elif arg.type == 'number':
+                v = int(arg.value, 0)
+        elif arg.type == 'floating':
+                v = int(float(arg.value) * (1 << FRACBITS))
+        elif arg.type == 'ident':
+                v = regs.get(arg.value.lower(), None)
+                if v is not None:
+                        return 'R', [v]
+                v = labels.get(arg.value.lower(), None)
+                if v is None:
+                        error("%d: invalid register or label: %s" % (lnum, arg.value))
+        else:
+                error("%d: don't know how to represent %s" % (lnum, opcode.type))
+
+        if v < 255:
+                return 'B', [v]
+        elif v <= 0xffffffff:
+                return 'D', list(struct.unpack('4B', struct.pack('<L', v)))
+        else:
+                error("%d: value too large to represent: %s" % (lnum, arg.value))
+
+if len(sys.argv) == 2:
+        sys.argv.append(sys.argv[1] + 'b') # stupid
+elif len(sys.argv) != 3:
+        error("usage: sasm input.s [output.sb]")
+
+
+for lnum, line in lex(open(sys.argv[1])):
+        if len(line) >= 2 and line[1].type == 'label':
+                label, line = line[0], line[2:]
+
+                if label.type == 'number':
+                        app.seek(int(label.value))
+                elif label.type == 'ident':
+                        v = label.value.lower()
+                        if v in regs:
+                                error("%d: a register name cannot be a label" % lnum)
+                        if v in labels:
+                                error("%d: duplicate label %s" % (lnum, v))
+                        labels[v] = app.tell()
+                else:
+                        error("%d: invalid syntax" % lnum)
+
+                if not line:
+                        continue
+
+        opcode = line.pop(0)
+        if opcode.type != 'ident':
+                error("%d: %s unexpected" % (lnum, opcode.type))
+
+
+        op = [opcode.value]
+        data = []
+        for arg in line:
+                t, v = to_bytes(lnum, arg)
+                if opcode.value != 'db':
+                        if t == 'A':
+                                error("%d: string values only supported by db" % lnum)
+                        op.append(t)
+                data.extend(v)
+        op = ''.join(op)
+        conv = opcodes.get(op, None)
+        if conv is None:
+                # TODO differentiate between "unknown opcode" and "unsupported opcode/operand"
+                error("%d: unknown opcode %s" % (lnum, op))
+        bytes = conv(*data)
+        app.write(''.join(map(chr, bytes)))
+        #print('%s %r => %s' % (op, data, ' '.join('%02X' % b for b in bytes)))
+
+
+app.seek(0)
+open(sys.argv[2], "wb").write(app.getvalue())
+
