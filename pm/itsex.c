@@ -289,7 +289,6 @@ int itsex_decompress8 (FILE *module, void *dst, int len, int it215)
 
     destbuf = (sbyte *) dst;
     if (!destbuf) {
-        fprintf(stderr, "destbuf is null!\n");
 	return 0;
     }
 
@@ -315,11 +314,9 @@ int itsex_decompress8 (FILE *module, void *dst, int len, int it215)
 
 	    if (width < 7) {				/* method 1 (1-6 bits) */
 		if (value == (1 << (width - 1))) {	/* check for "100..." */
-		    fprintf(stderr, "(marker)\n");
 		    value = readbits (3) + 1;		/* yes -> read new width; */
 		    width = (value < width) ? value : value + 1;
 							/* and expand it */
-		    fprintf(stderr, "width change -> %d\n", width);
 		    continue;				/* ... next value */
 		}
 	    } else if (width < 9) {			/* method 2 (7-8 bits) */
@@ -331,13 +328,11 @@ int itsex_decompress8 (FILE *module, void *dst, int len, int it215)
 		    value -= border;			/* convert width to 1-8 */
 		    width = (value < width) ? value : value + 1;
 							/* and expand it */
-		    fprintf(stderr, "width change -> %d  (%d < %d <= %d)\n", width, border, z, border + 8);
 		    continue;				/* ... next value */
 		}
 	    } else if (width == 9) {			/* method 3 (9 bits) */
 		if (value & 0x100) {			/* bit 8 set? */
 		    width = (value + 1) & 0xff;		/* new width... */
-		    fprintf(stderr, "width change -> %d\n", width);
 		    continue;				/* ... and next value */
 		}
 	    } else {					/* illegal width, abort */
@@ -353,9 +348,6 @@ int itsex_decompress8 (FILE *module, void *dst, int len, int it215)
 		v >>= shift;
 	    } else
 		v = (sbyte) value;
-
-            fprintf(stderr, "got %d bits = %02x => %4d    min = %d bits\n",
-                    width, value, v, minw_notmarker_8((sbyte) v));
 
 	    /* integrate upon the sample values */
 	    d1 += v;
