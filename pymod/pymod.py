@@ -216,7 +216,7 @@ class Song:
 			s.length = data[1] * 2
 			s.c5speed = MOD_FINETUNE_TABLE[data[2] & 0xf]
 			s.volume = data[3]
-			if data[4] > 2:
+			if data[5] > 2:
 				s.loop_start = data[4] * 2
 				s.loop_end = (data[4] + data[5]) * 2
 			self.samples.append(s)
