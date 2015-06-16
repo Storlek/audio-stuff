@@ -186,7 +186,14 @@ class Song:
 		print("Samples:")
 		print("\t## Name                   Length C5Spd Vl LStart L.End.")
 		print("\t-- ---------------------- ------ ----- -- ------ ------")
-		for n in range(1, 32):
+		for n in range(31, 0, -1):
+			s = self.samples[n]
+			if s.length > 0 or s.volume > 0 or s.name.strip() != '':
+				smax = n
+				break
+		else:
+			smax = 31
+		for n in range(1, smax + 1):
 			s = self.samples[n]
 			print("\t%2d %-22s %6d %5d %2d %6d %6d" % (
 				n, s.name, s.length, s.c5speed,
