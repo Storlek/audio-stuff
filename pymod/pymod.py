@@ -38,6 +38,41 @@ MOD_FINETUNE_TABLE = (
 	7895, 7941, 7985, 8046, 8107, 8169, 8232, 8280,
 )
 
+EFFECT_NAMES = [
+	('0xy', 'Arpeggio'),
+	('1xx', 'Pitch slide up'),
+	('2xx', 'Pitch slide down'),
+	('3xx', 'Slide to note'),
+	('4xy', 'Vibrato'),
+	('5xy', 'Vol slide + pitch to note'),
+	('6xy', 'Vol slide + vibrato'),
+	('7xy', 'Tremolo'),
+	('8xx', '(unused)'),
+	('9xx', 'Set offset'),
+	('Axy', 'Vol slide'),
+	('Bxx', 'Jump to order'),
+	('Cxx', 'Set volume'),
+	('Dxx', 'Pattern break'),
+	('Exx', '(extended)'),
+	('Fxx', 'Set speed/tempo'),
+	('E0x', 'Set filter'),
+	('E1x', 'Fine porta up'),
+	('E2x', 'Fine porta down'),
+	('E3x', 'Glissando'),
+	('E4x', 'Vib waveform'),
+	('E5x', 'Finetune'),
+	('E6x', 'Pattern loop'),
+	('E7x', 'Trem waveform'),
+	('E8x', 'Panning'),
+	('E9x', 'Retrigger'),
+	('EAx', 'Fine vol up'),
+	('EBx', 'Fine vol down'),
+	('ECx', 'Note cut'),
+	('EDx', 'Note delay'),
+	('EEx', 'Pattern delay'),
+	('EFx', 'Invert loop'),
+]
+
 # -------------------------------------------------------------------------------------------------------------
 # functions
 
@@ -199,6 +234,11 @@ class Song:
 				n, s.name, s.length, s.c5speed,
 				s.volume, s.loop_start, s.loop_end
 			))
+	def print_effect_warnings(self):
+		if self.effect_warnings:
+			print('\033[31;1m%d unhandled effects:\033[0m' % (sum(self.effect_warnings.values())))
+			for v, k in sorted(((v, k) for k, v in self.effect_warnings.items()), reverse=True):
+				print('\t[%5d] %s' % (v, k))
 	# the actual mod loader
 	def __init__(self, f):
 		# check the tag
@@ -241,17 +281,24 @@ class Song:
 		
 		# patterns
 		self.patterns = []
+		self.effect_warnings = {}
+		def warn_check(effect, param):
+			if effect in {1, 2, 3, 4, 7, 0xb, 0xe} or (effect == 0 and param != 0):
+				k = ' '.join(EFFECT_NAMES[(param >> 4) + 16 if effect == 0xe else effect])
+				self.effect_warnings.setdefault(k, 0)
+				self.effect_warnings[k] += 1
 		for pat in range(npat + 1):
 			size = 64 * 4 * self.num_channels
 			modpattern = struct.unpack("%dB" % size, f.read(size))
 			notes = []
 			for n in range(64 * self.num_channels):
 				a,b,c,d = modpattern[4 * n : 4 * n + 4]
-				note = Note(
-					period_to_note(((a & 0xf) << 8) | b), # note
-					(a & 0xf0) | (c >> 4), c & 0xf, d     # sample, effect, param
-				)
-				notes.append(note)
+				notes.append(Note(
+					note=period_to_note(((a & 0xf) << 8) | b),
+					sample=(a & 0xf0) | (c >> 4),
+					effect=(c & 0xf),
+					param=d))
+				warn_check(c & 0xf, d)
 			self.patterns.append(Pattern(64, notes))
 		
 		# sample data
@@ -418,7 +465,8 @@ print("%s: \"%s\" (%d orders, %d patterns)" % (
 ))
 #song.print_orderlist()
 #song.print_pattern(song.orderlist[0])
-#song.print_samples()
+song.print_samples()
+song.print_effect_warnings()
 
 song.reset()
 
